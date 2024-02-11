@@ -7,10 +7,11 @@
 	box-sizing: border-box;
 }
 
+/* I am thinking of adding some texture for the backround to not look boring */
 body {
-	background-color: #001a1a;
 	color: #e3e3e3;
 	font-family: sans-serif;
+	background: #001a1a url('assets/stars_pattern.png') repeat;
 }
 
 .top-container {
@@ -70,7 +71,7 @@ h1 {
 	height: 50vh;
 	max-height: 100vh;
 	width: 100%;
-	background-color: pink;
+	background-color: pink; /* <-- change that later to #000 */
 	transition: height 1s ease-in-out;
 }
 

@@ -16,6 +16,11 @@ import uranusRingTexture from './assets/textures/uranus_ring.png';
 import neptuneTexture from './assets/textures/neptune.jpg';
 import plutoTexture from './assets/textures/pluto.jpg';
 
+const state = {
+	speed: 1,
+	selectedBody: undefined
+}
+
 export const canvasContainer = document.getElementById('canvas-container');
 export const renderer = new THREE.WebGLRenderer();
 renderer.setSize(canvasContainer.clientWidth, canvasContainer.clientHeight);
@@ -55,6 +60,7 @@ const sunMat = new THREE.MeshBasicMaterial({
     map: textureLoader.load(sunTexture)
 });
 const sun = new THREE.Mesh(sunGeo, sunMat);
+sun.name = "sun";
 scene.add(sun);
 
 function ringMaker({innerRadius, outerRadius, segments, color, texture})
@@ -74,12 +80,13 @@ function ringMaker({innerRadius, outerRadius, segments, color, texture})
 	return (new THREE.Mesh(ringGeo, ringMaterial));
 }
 
-function planetMaker(size, texture, position, ringOpts) {
+function planetMaker(name, size, texture, position, ringOpts) {
     const geo = new THREE.SphereGeometry(size, 30, 30);
     const mat = new THREE.MeshStandardMaterial({
         map: textureLoader.load(texture)
     });
     const planet = new THREE.Mesh(geo, mat);
+	planet.name = name;
     const planetCenter = new THREE.Object3D();
     planetCenter.add(planet);
     let ring;
@@ -100,32 +107,62 @@ function planetMaker(size, texture, position, ringOpts) {
     return {planet, planetCenter, ring}
 }
 
-const mercury = planetMaker(3.2, mercuryTexture, 28);
-const venus = planetMaker(5.8, venusTexture, 44);
-const earth = planetMaker(6, earthTexture, 62);
-const mars = planetMaker(4, marsTexture, 78);
-const jupiter = planetMaker(12, jupiterTexture, 100);
-const saturn = planetMaker(10, saturnTexture, 138, {
+const mercury = planetMaker("mercury", 3.2, mercuryTexture, 28);
+const venus = planetMaker("venus", 5.8, venusTexture, 44);
+const earth = planetMaker("earth", 6, earthTexture, 62);
+const mars = planetMaker("mars", 4, marsTexture, 78);
+const jupiter = planetMaker("jupiter", 12, jupiterTexture, 100);
+const saturn = planetMaker("saturn", 10, saturnTexture, 138, {
     innerRadius: 10,
     outerRadius: 20,
 	segments: 32,
 	tilt: 26.73 / 180,
     texture: saturnRingTexture
 });
-const uranus = planetMaker(7, uranusTexture, 176, {
+const uranus = planetMaker("uranus", 7, uranusTexture, 176, {
     innerRadius: 7,
     outerRadius: 12,
 	segments: 32,
 	tilt: 97.77 / 180,
     texture: uranusRingTexture
 });
-const neptune = planetMaker(7, neptuneTexture, 200);
-const pluto = planetMaker(2.8, plutoTexture, 216);
+const neptune = planetMaker("neptune", 7, neptuneTexture, 200);
+const pluto = planetMaker("pluto", 2.8, plutoTexture, 216);
 
 const pointLight = new THREE.PointLight(0xFFFFFF, 2, 300, 0);
 scene.add(pointLight);
 
-let globalSpeed = 1;
+const pointerPosition = new THREE.Vector2();
+canvasContainer.addEventListener('pointermove', (e) => { 
+  const rect = canvasContainer.getBoundingClientRect(); 
+  pointerPosition.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointerPosition.y = - ((e.clientY - rect.top) / rect.height) * 2 + 1;
+}); 
+
+const rayCaster = new THREE.Raycaster();
+canvasContainer.addEventListener('click', (e) => {
+	const clickPosition = new THREE.Vector2();
+	const rect = canvasContainer.getBoundingClientRect(); 
+	clickPosition.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+	clickPosition.y = - ((e.clientY - rect.top) / rect.height) * 2 + 1;
+	// check the intersection
+	rayCaster.setFromCamera(clickPosition, camera);
+    intersects = rayCaster.intersectObjects(scene.children);
+	if (intersects.length)
+	{
+		for (let i = 0; i < intersects.length; i++)
+		{
+			if (intersects[i].object.name)
+			{
+				state.selectedBody = intersects[i].object.name;
+				break ;
+			}
+		}
+	}
+	else
+		state.selectedBody = undefined;
+}); 
+
 export function animate() {
     //Self-rotation
     sun.rotateY(0.004);
@@ -142,22 +179,27 @@ export function animate() {
     pluto.planet.rotateY(0.008);
 
     //Around-sun-rotation
-    mercury.planetCenter.rotateY(0.04 * globalSpeed);
-    venus.planetCenter.rotateY(0.015 * globalSpeed);
-    earth.planetCenter.rotateY(0.01 * globalSpeed);
-    mars.planetCenter.rotateY(0.008 * globalSpeed);
-    jupiter.planetCenter.rotateY(0.002 * globalSpeed);
-    saturn.planetCenter.rotateY(0.0009 * globalSpeed);
-    uranus.planetCenter.rotateY(0.0004 * globalSpeed);
-    neptune.planetCenter.rotateY(0.0001 * globalSpeed);
-    pluto.planetCenter.rotateY(0.00007 * globalSpeed);
+    mercury.planetCenter.rotateY(0.04 * state.speed);
+    venus.planetCenter.rotateY(0.015 * state.speed);
+    earth.planetCenter.rotateY(0.01 * state.speed);
+    mars.planetCenter.rotateY(0.008 * state.speed);
+    jupiter.planetCenter.rotateY(0.002 * state.speed);
+    saturn.planetCenter.rotateY(0.0009 * state.speed);
+    uranus.planetCenter.rotateY(0.0004 * state.speed);
+    neptune.planetCenter.rotateY(0.0001 * state.speed);
+    pluto.planetCenter.rotateY(0.00007 * state.speed);
+
+	rayCaster.setFromCamera(pointerPosition, camera);
+    let intersects = rayCaster.intersectObjects(scene.children);
+	document.body.style.cursor = intersects.length ? 'pointer' : 'auto';
 
     renderer.render(scene, camera);
+	console.log("The selected body is: ", state.selectedBody);
 }
 
 const gui = new dat.GUI();
 gui.add({speed: 1}, 'speed', 0, 10).onChange((e) => {
-	globalSpeed = e;
+	state.speed = e;
 });
 
 const guiElement = gui.domElement;

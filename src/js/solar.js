@@ -1,25 +1,23 @@
 import * as THREE from 'three';
 import * as dat from 'dat.gui';
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls.js';
+import { displayModal, isMouseOverModal } from './modal';
 // Textures
-import spaceTexture from './assets/textures/space.jpg';
-import sunTexture from './assets/textures/sun.jpg';
-import mercuryTexture from './assets/textures/mercury.jpg';
-import venusTexture from './assets/textures/venus.jpg';
-import earthTexture from './assets/textures/earth.jpg';
-import marsTexture from './assets/textures/mars.jpg';
-import jupiterTexture from './assets/textures/jupiter.jpg';
-import saturnTexture from './assets/textures/saturn.jpg';
-import saturnRingTexture from './assets/textures/saturn_ring.png';
-import uranusTexture from './assets/textures/uranus.jpg';
-import uranusRingTexture from './assets/textures/uranus_ring.png';
-import neptuneTexture from './assets/textures/neptune.jpg';
-import plutoTexture from './assets/textures/pluto.jpg';
+import spaceTexture from '../assets/textures/space.jpg';
+import sunTexture from '../assets/textures/sun.jpg';
+import mercuryTexture from '../assets/textures/mercury.jpg';
+import venusTexture from '../assets/textures/venus.jpg';
+import earthTexture from '../assets/textures/earth.jpg';
+import marsTexture from '../assets/textures/mars.jpg';
+import jupiterTexture from '../assets/textures/jupiter.jpg';
+import saturnTexture from '../assets/textures/saturn.jpg';
+import saturnRingTexture from '../assets/textures/saturn_ring.png';
+import uranusTexture from '../assets/textures/uranus.jpg';
+import uranusRingTexture from '../assets/textures/uranus_ring.png';
+import neptuneTexture from '../assets/textures/neptune.jpg';
+import plutoTexture from '../assets/textures/pluto.jpg';
 
-const state = {
-	speed: 1,
-	selectedBody: undefined
-}
+const state = { speed: 1, selectedPlanet: undefined }
 
 export const canvasContainer = document.getElementById('canvas-container');
 export const renderer = new THREE.WebGLRenderer();
@@ -69,14 +67,9 @@ function ringMaker({innerRadius, outerRadius, segments, color, texture})
 		innerRadius,
 		outerRadius,
 		segments);
-	let	ringMaterial;
-	if (color)
-		ringMaterial = new THREE.MeshBasicMaterial({ color });
-	else
-		ringMaterial = new THREE.MeshBasicMaterial({
-			map: textureLoader.load(texture),
-			side: THREE.DoubleSide
-		});
+	let	ringMaterial = color
+		?	new THREE.MeshBasicMaterial({ color })
+		:	new THREE.MeshBasicMaterial({ map: textureLoader.load(texture), side: THREE.DoubleSide });
 	return (new THREE.Mesh(ringGeo, ringMaterial));
 }
 
@@ -132,15 +125,22 @@ const pluto = planetMaker("pluto", 2.8, plutoTexture, 216);
 const pointLight = new THREE.PointLight(0xFFFFFF, 2, 300, 0);
 scene.add(pointLight);
 
-const pointerPosition = new THREE.Vector2();
-canvasContainer.addEventListener('pointermove', (e) => { 
+const pointerPosition = new THREE.Vector2(-1, -1);
+canvasContainer.addEventListener('pointermove', (e) => {
   const rect = canvasContainer.getBoundingClientRect(); 
   pointerPosition.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
   pointerPosition.y = - ((e.clientY - rect.top) / rect.height) * 2 + 1;
-}); 
+});
+
+document.getElementById('close-btn').addEventListener('mousedown',(e) => {
+	if (e.button != 0) return ;
+	state.selectedPlanet = undefined;
+	document.getElementById('modal').classList.remove('active');
+});
 
 const rayCaster = new THREE.Raycaster();
-canvasContainer.addEventListener('click', (e) => {
+canvasContainer.addEventListener('mousedown', (e) => {
+	if (e.button != 0) return ;
 	const clickPosition = new THREE.Vector2();
 	const rect = canvasContainer.getBoundingClientRect(); 
 	clickPosition.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -148,19 +148,23 @@ canvasContainer.addEventListener('click', (e) => {
 	// check the intersection
 	rayCaster.setFromCamera(clickPosition, camera);
     intersects = rayCaster.intersectObjects(scene.children);
-	if (intersects.length)
+	if (!isMouseOverModal(e.clientX, e.clientY))
 	{
-		for (let i = 0; i < intersects.length; i++)
+		if (intersects.length)
 		{
-			if (intersects[i].object.name)
+			for (let i = 0; i < intersects.length; i++)
 			{
-				state.selectedBody = intersects[i].object.name;
-				break ;
+				if (intersects[i].object.name)
+				{
+					state.selectedPlanet = intersects[i].object.name;
+					break ;
+				}
 			}
 		}
+		else
+			state.selectedPlanet = undefined;
 	}
-	else
-		state.selectedBody = undefined;
+	displayModal(state);
 }); 
 
 export function animate() {
@@ -190,11 +194,11 @@ export function animate() {
     pluto.planetCenter.rotateY(0.00007 * state.speed);
 
 	rayCaster.setFromCamera(pointerPosition, camera);
-    let intersects = rayCaster.intersectObjects(scene.children);
+	let intersects = [];
+	if (pointerPosition.x != -1 || pointerPosition.y != -1)
+		intersects = rayCaster.intersectObjects(scene.children);
 	document.body.style.cursor = intersects.length ? 'pointer' : 'auto';
-
     renderer.render(scene, camera);
-	console.log("The selected body is: ", state.selectedBody);
 }
 
 const gui = new dat.GUI();
@@ -204,6 +208,6 @@ gui.add({speed: 1}, 'speed', 0, 10).onChange((e) => {
 
 const guiElement = gui.domElement;
 guiElement.style.position = 'absolute';
-guiElement.style.top = '0';
+guiElement.style.top = '1rem';
 guiElement.style.right = '0';
 canvasContainer.appendChild(guiElement);

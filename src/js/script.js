@@ -13,4 +13,3 @@ const observer = new ResizeObserver((entries) => {
     renderer.setSize(entries[0].contentRect.width, entries[0].contentRect.height);
 })
 observer.observe(canvasContainer);
-// console.log("Everything is run")
